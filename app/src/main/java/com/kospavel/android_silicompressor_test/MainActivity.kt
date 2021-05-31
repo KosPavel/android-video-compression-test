@@ -3,7 +3,6 @@ package com.kospavel.android_silicompressor_test
 import android.content.Intent
 import android.os.Bundle
 import android.provider.MediaStore
-import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.android.synthetic.main.activity_main.*
@@ -26,7 +25,7 @@ class MainActivity : AppCompatActivity() {
             val photoPickerIntent = Intent(Intent.ACTION_PICK)
             photoPickerIntent.type = "*/*"
 //            photoPickerIntent.putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
-            photoPickerIntent.putExtra(Intent.EXTRA_MIME_TYPES,"video/*")
+            photoPickerIntent.putExtra(Intent.EXTRA_MIME_TYPES, "video/*")
             startActivityForResult(photoPickerIntent, REQUEST_VIDEO_GALLERY)
         }
 
@@ -51,6 +50,19 @@ class MainActivity : AppCompatActivity() {
 
         vm.toastMessages.observe(this, {
             Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
+        })
+
+        vm.rawVideoParams.observe(this, {
+            tvRawWidth.text = "width = ${it.width}"
+            tvRawHeight.text = "height = ${it.height}"
+            tvRawSize.text = "size = ${it.sizeMb} Mb"
+            tvRawDuration.text = "duration = ${it.duration} sec"
+        })
+        vm.compressedVideoParams.observe(this, {
+            tvCompressedWidth.text = "width = ${it.width}"
+            tvCompressedHeight.text = "height = ${it.height}"
+            tvCompressedSize.text = "size = ${it.sizeMb} Mb"
+            tvCompressedDuration.text = "duration = ${it.duration} sec"
         })
     }
 

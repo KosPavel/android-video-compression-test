@@ -28,6 +28,12 @@ class TestViewModel(private val context: Context) : ViewModel() {
     private val _toastMessages = MutableLiveData<String>()
     val toastMessages: LiveData<String> = _toastMessages
 
+    private val _rawVideoParams = MutableLiveData<VideoParams>()
+    val rawVideoParams: LiveData<VideoParams> = _rawVideoParams
+
+    private val _compressedVideoParams = MutableLiveData<VideoParams>()
+    val compressedVideoParams: LiveData<VideoParams> = _compressedVideoParams
+
     fun setRecorderUri(uri: Uri, type: String?) {
         viewModelScope.launch {
             createFileFromUri(uri, type)
@@ -40,24 +46,19 @@ class TestViewModel(private val context: Context) : ViewModel() {
         //открытие inputstream и создание файла из него
         val fileInputStream = context.contentResolver.openInputStream(uri)
         val file = fileInputStream?.let { inputStreamToFile(it) }
-        val fileSize = (file?.length() ?: 0).toFloat()
-//        _toastMessages.postValue("file size: ${fileSize / 1000000} MB, type: $type")
 
         file?.let {
-            val params = getVideoParameters(it.toUri())
-            _toastMessages.postValue("raw height: ${params.second}, width: ${params.first}")
+            val params = getVideoParameters(it)
+            _rawVideoParams.postValue(params)
         }
 
         viewModelScope.launch {
             file?.let { recordedFile ->
                 val recordedFileUri = recordedFile.absoluteFile.toUri()
-                val compressedFile = compressUsingSili(recordedFileUri, 480, 320)
+                val compressedFile = compressUsingSili(recordedFileUri)
                 Log.i("qwerty", "compressed path = ${compressedFile.path}")
-                val params = getVideoParameters(compressedFile.toUri())
-                _toastMessages.postValue("compressed height: ${params.second}, width: ${params.first}")
-
-                val compressedSize = compressedFile.length().toFloat()
-//                _toastMessages.postValue("compressed size: ${compressedSize / 1000000} MB")
+                val params = getVideoParameters(compressedFile)
+                _compressedVideoParams.postValue(params)
                 _compressedUri.postValue(compressedFile.toUri())
             }
         }
@@ -78,24 +79,48 @@ class TestViewModel(private val context: Context) : ViewModel() {
         }
     }
 
-    private suspend fun compressUsingSili(videoUri: Uri, width: Int = 0, height: Int = 0, bitrate: Int = 0): File {
+    private suspend fun compressUsingSili(
+        videoUri: Uri,
+        width: Int = 0,
+        height: Int = 0,
+        bitrate: Int = 0
+    ): File {
         return withContext(Dispatchers.IO) {
-            File(SiliCompressor.with(context).compressVideo(
-                videoUri,
-                context.cacheDir.path,
-                width,
-                height,
-                bitrate
-            ))
+            File(
+                SiliCompressor.with(context).compressVideo(
+                    videoUri,
+                    context.cacheDir.path,
+                    width,
+                    height,
+                    bitrate
+                )
+            )
         }
     }
 
-    private fun getVideoParameters(uri: Uri): Pair<String?, String?> {
+    private fun getVideoParameters(file: File): VideoParams {
         val mediaRetriever = MediaMetadataRetriever()
-        mediaRetriever.setDataSource(context, uri)
-        val height = mediaRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
+        mediaRetriever.setDataSource(context, file.toUri())
+        val height =
+            mediaRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
         val width = mediaRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
-        return Pair(width, height)
+        val duration =
+            (mediaRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong()
+                ?: 0) / 1000
+        val size = file.length().toFloat() / 1000000
+        return VideoParams(
+            width = width,
+            height = height,
+            sizeMb = size.toString(),
+            duration = duration.toString()
+        )
     }
 
 }
+
+data class VideoParams(
+    val width: String?,
+    val height: String?,
+    val sizeMb: String?,
+    val duration: String?
+)
